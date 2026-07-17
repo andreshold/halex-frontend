@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cream-50 text-navy-900 antialiased;
+  font-feature-settings: 'ss01' on;
+}
+
+::selection {
+  @apply bg-gold-400/30 text-navy-950;
+}
+
+/* Slim, elegant scrollbar for chat panels */
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(212, 175, 55, 0.35);
+  border-radius: 999px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(212, 175, 55, 0.55);
+}
+
+.text-gradient-gold {
+  background: linear-gradient(90deg, #eed99e 0%, #d4af37 45%, #f5e9c6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-shimmer {
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    100deg,
+    rgba(212, 175, 55, 0) 30%,
+    rgba(212, 175, 55, 0.5) 50%,
+    rgba(212, 175, 55, 0) 70%
+  );
+}
+
+/* Futuristic grid overlay, used behind dark hero/section backgrounds */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(212, 175, 55, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.08) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Cursor-tracked spotlight glow for cards. JS sets --x/--y in %. */
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background: radial-gradient(
+    360px circle at var(--x, 50%) var(--y, 50%),
+    rgba(212, 175, 55, 0.14),
+    transparent 65%
+  );
+  pointer-events: none;
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card--dark::before {
+  background: radial-gradient(
+    360px circle at var(--x, 50%) var(--y, 50%),
+    rgba(212, 175, 55, 0.16),
+    transparent 65%
+  );
+}
+
+/* Animated gradient text used for accent headlines */
+.text-gradient-animated {
+  background: linear-gradient(90deg, #eed99e, #d4af37, #f5e9c6, #d4af37, #eed99e);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientShift 6s ease infinite;
+}

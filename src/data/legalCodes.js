@@ -1,0 +1,66 @@
+export const legalCodes = [
+  {
+    id: 'constitution',
+    name: 'Konstitisyon 1987',
+    nameFr: 'Constitution de 1987',
+    articles: 298,
+    description:
+      "Lwa fondamantal Repiblik Ayiti a — dwa sitwayen, pouvwa leta, ak enstitisyon nasyonal yo.",
+    descriptionFr:
+      "La loi fondamentale de la République d'Haïti — droits des citoyens, pouvoirs de l'État et institutions nationales.",
+    tags: ['Dwa fondamantal', 'Enstitisyon', 'Pouvwa piblik'],
+    tagsFr: ['Droits fondamentaux', 'Institutions', 'Pouvoirs publics'],
+  },
+  {
+    id: 'code-civil',
+    name: 'Kòd Sivil',
+    nameFr: 'Code Civil',
+    articles: 2047,
+    description:
+      "Relasyon sivil, fanmi, byen, kontra, ak eritaj — baz lavi jiridik chak sitwayen.",
+    descriptionFr:
+      "Relations civiles, famille, biens, contrats et héritage — la base de la vie juridique de chaque citoyen.",
+    tags: ['Fanmi', 'Byen', 'Kontra'],
+    tagsFr: ['Famille', 'Biens', 'Contrats'],
+  },
+  {
+    id: 'code-penal',
+    name: 'Kòd Penal',
+    nameFr: 'Code Pénal',
+    articles: 408,
+    description: "Enfraksyon, delè, krim, ak sanksyon yo prevwa nan sistèm jistis kriminèl la.",
+    descriptionFr: "Infractions, délits, crimes et sanctions prévus dans le système de justice pénale.",
+    tags: ['Kriminèl', 'Sanksyon', 'Enfraksyon'],
+    tagsFr: ['Pénal', 'Sanctions', 'Infractions'],
+  },
+  {
+    id: 'code-travail',
+    name: 'Kòd Travay',
+    nameFr: 'Code du Travail',
+    articles: 478,
+    description: "Dwa travayè, kontra travay, konje, sendika, ak sekirite sosyal.",
+    descriptionFr: "Droits des travailleurs, contrats de travail, congés, syndicats et sécurité sociale.",
+    tags: ['Anplwaye', 'Kontra', 'Sendika'],
+    tagsFr: ['Employés', 'Contrats', 'Syndicats'],
+  },
+  {
+    id: 'code-commerce',
+    name: 'Kòd Komès',
+    nameFr: 'Code de Commerce',
+    articles: 651,
+    description: "Antrepriz, sosyete komèsyal, fayit, ak operasyon komèsyal.",
+    descriptionFr: "Entreprises, sociétés commerciales, faillite et opérations commerciales.",
+    tags: ['Antrepriz', 'Sosyete', 'Fayit'],
+    tagsFr: ['Entreprises', 'Sociétés', 'Faillite'],
+  },
+  {
+    id: 'code-instruction',
+    name: 'Kòd Enstriksyon Kriminèl',
+    nameFr: "Code d'Instruction Criminelle",
+    articles: 320,
+    description: "Pwosedi jiridik, ankèt, jijman, ak dwa akize yo pandan pwosè kriminèl.",
+    descriptionFr: "Procédure judiciaire, enquête, jugement et droits de l'accusé pendant le procès pénal.",
+    tags: ['Pwosedi', 'Ankèt', 'Jijman'],
+    tagsFr: ['Procédure', 'Enquête', 'Jugement'],
+  },
+]
