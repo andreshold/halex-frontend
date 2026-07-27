@@ -26,9 +26,9 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-white/5 bg-navy-950 text-cream-100/70">
-      <Reveal className="mx-auto max-w-7xl px-5 py-14 sm:px-8" amount={0.1}>
-        <div className="grid grid-cols-2 gap-10 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="col-span-2">
+      <Reveal className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-14" amount={0.1}>
+        <div className="grid grid-cols-2 gap-8 gap-y-10 sm:gap-10 lg:grid-cols-5">
+          <div className="col-span-full sm:col-span-2">
             <motion.div whileHover={{ scale: 1.03 }} className="inline-block">
               <Logo />
             </motion.div>

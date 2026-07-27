@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: #F5F7FA;
+  --color-primary: #0B1F3A;
+  --color-accent: #D4AF37;
+  --color-bg-rgb: 245, 247, 250;
+  --color-primary-rgb: 11, 31, 58;
+  --color-accent-rgb: 212, 175, 55;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -9,6 +18,14 @@ html {
 body {
   @apply bg-cream-50 text-navy-900 antialiased;
   font-feature-settings: 'ss01' on;
+}
+
+/* Filet de sécurité anti-débordement horizontal mobile : les vraies causes
+   (logo, cartes, sections) sont corrigées en amont ; ceci absorbe les
+   dépassements résiduels de quelques px (animations, ombres décoratives). */
+html,
+body {
+  overflow-x: hidden;
 }
 
 ::selection {
@@ -24,15 +41,15 @@ body {
   background: transparent;
 }
 .scroll-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(212, 175, 55, 0.35);
+  background-color: rgba(var(--color-accent-rgb), 0.35);
   border-radius: 999px;
 }
 .scroll-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(212, 175, 55, 0.55);
+  background-color: rgba(var(--color-accent-rgb), 0.55);
 }
 
 .text-gradient-gold {
-  background: linear-gradient(90deg, #eed99e 0%, #d4af37 45%, #f5e9c6 100%);
+  background: linear-gradient(90deg, #eed99e 0%, var(--color-accent) 45%, #f5e9c6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -42,17 +59,17 @@ body {
   background-size: 200% 100%;
   background-image: linear-gradient(
     100deg,
-    rgba(212, 175, 55, 0) 30%,
-    rgba(212, 175, 55, 0.5) 50%,
-    rgba(212, 175, 55, 0) 70%
+    rgba(var(--color-accent-rgb), 0) 30%,
+    rgba(var(--color-accent-rgb), 0.5) 50%,
+    rgba(var(--color-accent-rgb), 0) 70%
   );
 }
 
 /* Futuristic grid overlay, used behind dark hero/section backgrounds */
 .bg-grid {
   background-image:
-    linear-gradient(rgba(212, 175, 55, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(212, 175, 55, 0.08) 1px, transparent 1px);
+    linear-gradient(rgba(var(--color-accent-rgb), 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--color-accent-rgb), 0.08) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
@@ -71,7 +88,7 @@ body {
   transition: opacity 0.4s ease;
   background: radial-gradient(
     360px circle at var(--x, 50%) var(--y, 50%),
-    rgba(212, 175, 55, 0.14),
+    rgba(var(--color-accent-rgb), 0.14),
     transparent 65%
   );
   pointer-events: none;
@@ -83,14 +100,14 @@ body {
 .spotlight-card--dark::before {
   background: radial-gradient(
     360px circle at var(--x, 50%) var(--y, 50%),
-    rgba(212, 175, 55, 0.16),
+    rgba(var(--color-accent-rgb), 0.16),
     transparent 65%
   );
 }
 
 /* Animated gradient text used for accent headlines */
 .text-gradient-animated {
-  background: linear-gradient(90deg, #eed99e, #d4af37, #f5e9c6, #d4af37, #eed99e);
+  background: linear-gradient(90deg, #eed99e, var(--color-accent), #f5e9c6, var(--color-accent), #eed99e);
   background-size: 300% auto;
   -webkit-background-clip: text;
   background-clip: text;

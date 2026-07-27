@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { useAuth } from './context/AuthContext.jsx'
 import Layout from './components/Layout.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import ScrollProgress from './components/motion/ScrollProgress.jsx'
@@ -10,9 +11,28 @@ import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
 import ArticleOfDayPage from './pages/ArticleOfDayPage.jsx'
 import Chat from './pages/Chat.jsx'
+import ReinitialiserMotDePasse from './pages/ReinitialiserMotDePasse.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 export default function App() {
+  const { recoveryMode } = useAuth()
+
+  // recoveryMode doit être vérifié EN PREMIER, avant toute logique de route ou
+  // de session utilisateur : le lien de réinitialisation établit une session
+  // valide (l'utilisateur est techniquement "connecté"), donc sans cette
+  // priorité explicite, ProtectedRoute laisserait passer directement vers
+  // /halex-chat au lieu d'afficher l'écran de changement de mot de passe.
+  // Le lien ramène sur window.location.origin (pas une route précise) : on
+  // intercepte donc ici, avant les Routes, quelle que soit la page de retour.
+  if (recoveryMode) {
+    return (
+      <>
+        <ScrollProgress />
+        <ReinitialiserMotDePasse />
+      </>
+    )
+  }
+
   return (
     <>
       <ScrollProgress />

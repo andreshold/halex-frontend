@@ -41,7 +41,7 @@ export default function Navbar() {
   return (
     <header
       className={`sticky top-0 z-50 transition-colors duration-300 ${
-        scrolled ? 'bg-navy-950/90 backdrop-blur-md shadow-lg shadow-black/20' : 'bg-navy-950/60 backdrop-blur-sm'
+        scrolled ? 'bg-navy-800/90 backdrop-blur-md shadow-lg shadow-black/20' : 'bg-navy-800/60 backdrop-blur-sm'
       } border-b border-white/5`}
     >
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 sm:px-8">
@@ -122,7 +122,7 @@ export default function Navbar() {
 
           <motion.button
             whileTap={{ scale: 0.9 }}
-            className="rounded-lg p-2 text-cream-100"
+            className="rounded-lg p-2.5 text-cream-100"
             onClick={() => setOpen((o) => !o)}
             aria-label={t.nav.openMenu}
           >

@@ -10,21 +10,34 @@ import {
   Scale,
   Search,
   Sparkles,
-  Globe,
-  ChevronDown,
   Copy,
   Check,
   RotateCw,
-  PanelLeftClose,
-  PanelLeft,
+  Gavel,
+  Briefcase,
+  Users,
+  Home,
+  Settings,
+  Pencil,
+  Share2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import MessageContent from '../components/MessageContent.jsx'
-import Magnetic from '../components/motion/Magnetic.jsx'
-import { seedConversations, suggestedPrompts, generateMockReply } from '../data/chatMock.js'
-
-const languages = ['Kreyòl', 'Français', 'English']
+import SourceChip from '../components/SourceChip.jsx'
+import AvatarHalex from '../components/AvatarHalex.jsx'
+import ArticleModal from '../components/ArticleModal.jsx'
+import ChipsClarification from '../components/ChipsClarification.jsx'
+import ParametresModal from '../components/ParametresModal.jsx'
+import { suggestedPrompts } from '../data/chatMock.js'
+import {
+  creerConversation,
+  enregistrerMessage,
+  listerConversations,
+  chargerMessages,
+  modifierMessage,
+  regenererReponse,
+} from '../lib/historique.js'
 
 const avatarPalette = [
   'bg-gold-400 text-navy-950',
@@ -39,6 +52,19 @@ function avatarClass(id) {
   return avatarPalette[sum % avatarPalette.length]
 }
 
+const categoryDefs = [
+  { id: 'civil', icon: Scale },
+  { id: 'criminal', icon: Gavel },
+  { id: 'labor', icon: Briefcase },
+  { id: 'family', icon: Users },
+]
+
+const MODES = [
+  { id: 'citoyen', label: 'Citoyen', description: 'Réponses pratiques : vos droits, vos démarches' },
+  { id: 'educatif', label: 'Éducatif', description: 'Explications pédagogiques avec exemples' },
+  { id: 'judiciaire', label: 'Judiciaire', description: 'Réponses techniques pour professionnels du droit' },
+]
+
 const listContainer = {
   hidden: {},
   show: { transition: { staggerChildren: 0.06 } },
@@ -49,12 +75,12 @@ const listItem = {
 }
 
 export default function Chat() {
-  const { user, logout } = useAuth()
+  const { user, logout, mettreAJourModeReponse } = useAuth()
   const { lang: siteLang, t } = useLanguage()
   const chatText = t.chat
   const navigate = useNavigate()
 
-  const [conversations, setConversations] = useState(() => seedConversations[siteLang])
+  const [conversations, setConversations] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [input, setInput] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
@@ -62,32 +88,59 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [search, setSearch] = useState('')
-  const [langMenuOpen, setLangMenuOpen] = useState(false)
-  const [replyLang, setReplyLang] = useState('Kreyòl')
+  const [activeCategory, setActiveCategory] = useState(null)
   const [copiedIndex, setCopiedIndex] = useState(null)
+  const [articleOuvert, setArticleOuvert] = useState(null)
+  const [parametresOuverts, setParametresOuverts] = useState(false)
+  const [menuOuvert, setMenuOuvert] = useState(false)
+  const mode = user?.modeReponse || 'citoyen'
+  const [messageEnEdition, setMessageEnEdition] = useState(null)
+  const [texteEdition, setTexteEdition] = useState('')
+  const [regenerationEnCours, setRegenerationEnCours] = useState(null)
+  const [partageCopieIndex, setPartageCopieIndex] = useState(null)
   const scrollRef = useRef(null)
   const textareaRef = useRef(null)
-  const langMenuRef = useRef(null)
+  const menuModeRef = useRef(null)
 
   const activeConversation = conversations.find((c) => c.id === activeId) || null
-  const filteredConversations = conversations.filter((c) =>
-    c.title.toLowerCase().includes(search.toLowerCase()),
+  const filteredConversations = conversations.filter(
+    (c) =>
+      c.title.toLowerCase().includes(search.toLowerCase()) &&
+      (!activeCategory || c.category === activeCategory),
   )
+
+  useEffect(() => {
+  if (!user) return
+  listerConversations()
+    .then((rows) =>
+      setConversations(
+        rows.map((r) => ({ id: r.id, title: r.titre, updatedAt: r.created_at, messages: [] })),
+      ),
+    )
+    .catch(console.error)
+}, [user])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [activeConversation?.messages.length, thinking])
 
   useEffect(() => {
-    if (!langMenuOpen) return
-    function onClickOutside(e) {
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target)) {
-        setLangMenuOpen(false)
+    if (!menuOuvert) return
+    function handleClickOutside(e) {
+      if (menuModeRef.current && !menuModeRef.current.contains(e.target)) {
+        setMenuOuvert(false)
       }
     }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [langMenuOpen])
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setMenuOuvert(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOuvert])
 
   function handleLogout() {
     logout()
@@ -99,6 +152,41 @@ export default function Chat() {
     setSidebarOpen(false)
   }
 
+  function handleHistoriqueEffacee() {
+    setConversations([])
+    setActiveId(null)
+  }
+
+  async function openConversation(convId) {
+  setActiveId(convId)
+  setSidebarOpen(false)
+  const conv = conversations.find((c) => c.id === convId)
+  if (conv && conv.messages.length === 0) {
+    try {
+      const msgs = await chargerMessages(convId)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId
+            ? {
+                ...c,
+                messages: msgs.map((m) => ({
+                  id: m.id,
+                  created_at: m.created_at,
+                  role: m.role,
+                  content: m.contenu,
+                  sources: m.sources,
+                })),
+              }
+            : c,
+        ),
+      )
+    } catch (err) {
+      console.error(err)
+    }
+  }
+}
+
+
   function autoGrow() {
     const el = textareaRef.current
     if (!el) return
@@ -106,69 +194,266 @@ export default function Chat() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }
 
-  function replyTo(convId, forMessage) {
-    setThinking(true)
-    setTimeout(() => {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === convId
-            ? { ...c, messages: [...c.messages, { role: 'assistant', content: generateMockReply(forMessage, siteLang) }] }
-            : c,
-        ),
-      )
-      setThinking(false)
-    }, 1100)
+  // Appel brut du backend, sans effet de bord sur le state ni la persistance —
+  // partagé entre l'envoi normal (replyTo) et la régénération sur place.
+  async function appelerHalex(forMessage, extra = null) {
+    const res = await fetch('http://localhost:8000/poser-question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: forMessage, mode, ...(extra || {}) }),
+    })
+    if (!res.ok) throw new Error(`Erreur serveur (${res.status})`)
+    return res.json()
   }
 
-  function sendMessage(text) {
-    const content = text.trim()
-    if (!content) return
+  async function replyTo(convId, forMessage, extra = null) {
+  setThinking(true)
+  try {
+    const data = await appelerHalex(forMessage, extra)
+    const sources = data.sources || []
+    const { id, created_at } = await enregistrerMessage(convId, 'assistant', data.reponse, sources)
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              messages: [
+                ...c.messages,
+                {
+                  id,
+                  created_at,
+                  role: 'assistant',
+                  content: data.reponse,
+                  sources,
+                  type: data.type,
+                  options: data.options,
+                  contexte_clarification: data.contexte_clarification,
+                  autre_autorise: data.autre_autorise,
+                  resolue: false,
+                },
+              ],
+            }
+          : c,
+      ),
+    )
+  } catch (err) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === convId
+          ? {
+              ...c,
+              messages: [
+                ...c.messages,
+                {
+                  role: 'assistant',
+                  content:
+                    "⚠️ Impossible de joindre le serveur Halex pour le moment. Vérifiez que l'API est bien lancée, puis réessayez.",
+                },
+              ],
+            }
+          : c,
+      ),
+    )
+  } finally {
+    setThinking(false)
+  }
+}
 
-    if (!activeConversation) {
+  async function sendMessage(text) {
+  const content = text.trim()
+  if (!content) return
+
+  if (!activeConversation) {
+    try {
+      const convId = await creerConversation(user.id, content)
+      const { id, created_at } = await enregistrerMessage(convId, 'user', content)
       const newConv = {
-        id: `c-${Date.now()}`,
+        id: convId,
         title: content.slice(0, 40) + (content.length > 40 ? '…' : ''),
         updatedAt: new Date().toISOString(),
-        messages: [{ role: 'user', content }],
+        messages: [{ id, created_at, role: 'user', content }],
       }
       setConversations((prev) => [newConv, ...prev])
-      setActiveId(newConv.id)
+      setActiveId(convId)
       setInput('')
       requestAnimationFrame(autoGrow)
-      replyTo(newConv.id, content)
-      return
+      replyTo(convId, content)
+    } catch (err) {
+      console.error(err)
     }
+    return
+  }
 
+  try {
+    const { id, created_at } = await enregistrerMessage(activeConversation.id, 'user', content)
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversation.id
-          ? { ...c, messages: [...c.messages, { role: 'user', content }] }
+          ? { ...c, messages: [...c.messages, { id, created_at, role: 'user', content }] }
           : c,
       ),
     )
     setInput('')
     requestAnimationFrame(autoGrow)
     replyTo(activeConversation.id, content)
+  } catch (err) {
+    console.error(err)
   }
+}
 
-  function regenerate(messageIndex) {
-    if (!activeConversation || thinking) return
+  async function regenerate(messageIndex) {
+    if (!activeConversation || regenerationEnCours) return
+    const targetMsg = activeConversation.messages[messageIndex]
+    if (!targetMsg || targetMsg.role !== 'assistant' || !targetMsg.id) return
     const priorUserMsg = [...activeConversation.messages.slice(0, messageIndex)].reverse().find((m) => m.role === 'user')
     if (!priorUserMsg) return
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === activeConversation.id
-          ? { ...c, messages: c.messages.slice(0, messageIndex) }
-          : c,
-      ),
-    )
-    replyTo(activeConversation.id, priorUserMsg.content)
+
+    const convId = activeConversation.id
+    setRegenerationEnCours(targetMsg.id)
+    try {
+      const data = await appelerHalex(priorUserMsg.content)
+      const sources = data.sources || []
+      await regenererReponse(targetMsg.id, data.reponse, sources)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId
+            ? {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === targetMsg.id
+                    ? {
+                        ...m,
+                        content: data.reponse,
+                        sources,
+                        type: data.type,
+                        options: data.options,
+                        contexte_clarification: data.contexte_clarification,
+                        autre_autorise: data.autre_autorise,
+                        resolue: false,
+                      }
+                    : m,
+                ),
+              }
+            : c,
+        ),
+      )
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRegenerationEnCours(null)
+    }
+  }
+
+  async function handleChoixClarification(messageIndex, { texte, contexte }) {
+    if (!activeConversation) return
+    const questionOrigine = contexte?.numero
+      ? [...activeConversation.messages.slice(0, messageIndex)]
+          .reverse()
+          .find((m) => m.role === 'user')?.content
+      : null
+
+    try {
+      const { id, created_at } = await enregistrerMessage(activeConversation.id, 'user', texte)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversation.id
+            ? {
+                ...c,
+                messages: [
+                  ...c.messages.map((m, idx) => (idx === messageIndex ? { ...m, resolue: true } : m)),
+                  { id, created_at, role: 'user', content: texte },
+                ],
+              }
+            : c,
+        ),
+      )
+    } catch (err) {
+      console.error(err)
+      return
+    }
+
+    if (contexte?.numero) {
+      replyTo(activeConversation.id, questionOrigine, {
+        numero_article: contexte.numero,
+        source_choisie: texte,
+      })
+    } else {
+      replyTo(activeConversation.id, texte)
+    }
   }
 
   function copyMessage(text, index) {
     navigator.clipboard?.writeText(text)
     setCopiedIndex(index)
     setTimeout(() => setCopiedIndex((i) => (i === index ? null : i)), 1600)
+  }
+
+  async function partagerReponse(messageIndex) {
+    if (!activeConversation) return
+    const msg = activeConversation.messages[messageIndex]
+    if (!msg || msg.role !== 'assistant') return
+    const priorUserMsg = [...activeConversation.messages.slice(0, messageIndex)].reverse().find((m) => m.role === 'user')
+
+    const parties = []
+    if (priorUserMsg) parties.push(priorUserMsg.content)
+    parties.push(msg.content)
+    if (msg.sources?.length > 0) {
+      const sourcesTexte = msg.sources.map((src) => `${src.article} — ${src.source}`).join('; ')
+      parties.push(`Sources : ${sourcesTexte}`)
+    }
+    parties.push('— via Halex AI')
+    const texte = parties.join('\n\n')
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: texte })
+      } catch (err) {
+        if (err?.name !== 'AbortError') console.error(err)
+      }
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(texte)
+      setPartageCopieIndex(messageIndex)
+      setTimeout(() => setPartageCopieIndex((idx) => (idx === messageIndex ? null : idx)), 2000)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  function commencerEdition(msg) {
+    setMessageEnEdition(msg.id)
+    setTexteEdition(msg.content)
+  }
+
+  function annulerEdition() {
+    setMessageEnEdition(null)
+    setTexteEdition('')
+  }
+
+  async function soumettreEdition(msg, messageIndex) {
+    const nouveauContenu = texteEdition.trim()
+    if (!nouveauContenu || !activeConversation || thinking) return
+    const convId = activeConversation.id
+
+    try {
+      // Nettoie d'abord la base (supprime les messages postérieurs, met à jour le contenu),
+      // puis seulement si ça réussit on tronque le state et on relance la génération —
+      // pour ne jamais désynchroniser l'UI de ce qui est réellement persisté.
+      await modifierMessage(convId, msg.id, nouveauContenu, msg.created_at)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === convId
+            ? { ...c, messages: [...c.messages.slice(0, messageIndex), { ...msg, content: nouveauContenu }] }
+            : c,
+        ),
+      )
+      annulerEdition()
+      replyTo(convId, nouveauContenu)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   function handleSubmit(e) {
@@ -184,172 +469,258 @@ export default function Chat() {
           : '0 1px 2px rgba(15,23,42,0.04), 0 10px 30px -14px rgba(15,23,42,0.1)',
       }}
       transition={{ duration: 0.25 }}
-      className="mx-auto w-full max-w-3xl overflow-visible rounded-3xl border border-navy-900/10 bg-white"
+      className="relative mx-auto w-full max-w-3xl 2xl:max-w-4xl"
     >
-      <div className="flex items-end gap-2 px-4 pt-3.5">
-        <Sparkles size={17} className="mb-2 shrink-0 text-gold-400" />
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value)
-            autoGrow()
-          }}
-          onFocus={() => setInputFocused(true)}
-          onBlur={() => setInputFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              sendMessage(input)
-            }
-          }}
-          rows={1}
-          placeholder={chatText.inputPlaceholder}
-          className="max-h-48 flex-1 resize-none bg-transparent py-1.5 text-sm text-navy-900 outline-none transition-[height] duration-100"
-        />
-      </div>
-
-      <div className="mt-2 flex items-center justify-between border-t border-navy-900/5 px-3 py-2">
-        <div ref={langMenuRef} className="relative">
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setLangMenuOpen((o) => !o)}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-              langMenuOpen
-                ? 'border-gold-400/50 bg-gold-50 text-gold-700'
-                : 'border-navy-900/10 text-navy-700/70 hover:border-gold-400/40 hover:text-gold-600'
-            }`}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute -inset-px rounded-[26px] bg-gradient-to-r from-gold-400/70 via-sky-400/40 to-gold-400/70 bg-[length:200%_auto] blur-[2px] transition-opacity duration-300 ${
+          inputFocused ? 'animate-gradient-shift opacity-100' : 'opacity-0'
+        }`}
+      />
+      <div className="relative overflow-visible rounded-3xl border border-navy-900/10 bg-white/90 backdrop-blur-xl">
+        <div className="flex items-end gap-2 px-4 pt-3.5">
+          <motion.span
+            animate={{ opacity: [0.55, 1, 0.55] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            className="mb-2 shrink-0"
           >
-            <Globe size={13} />
-            {replyLang}
-            <ChevronDown size={13} className={`transition-transform ${langMenuOpen ? 'rotate-180' : ''}`} />
-          </motion.button>
-
-          <AnimatePresence>
-            {langMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.94, y: 6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.94, y: 6 }}
-                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute bottom-full left-0 z-30 mb-2 w-48 rounded-2xl border border-navy-900/10 bg-white p-2 shadow-2xl"
-              >
-                <p className="mb-1.5 px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-navy-700/40">
-                  {chatText.responseLanguageLabel}
-                </p>
-                {languages.map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => {
-                      setReplyLang(l)
-                      setLangMenuOpen(false)
-                    }}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                      replyLang === l ? 'bg-navy-950 text-white' : 'text-navy-700 hover:bg-cream-100'
-                    }`}
-                  >
-                    {l}
-                    {replyLang === l && <Check size={14} />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <Sparkles size={17} className="text-gold-400" />
+          </motion.span>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value)
+              autoGrow()
+            }}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage(input)
+              }
+            }}
+            rows={1}
+            placeholder={chatText.inputPlaceholder}
+            className="max-h-48 flex-1 resize-none bg-transparent py-1.5 text-sm text-navy-900 outline-none transition-[height] duration-100"
+          />
         </div>
 
-        <motion.button
-          whileHover={input.trim() ? { scale: 1.08 } : {}}
-          whileTap={input.trim() ? { scale: 0.9 } : {}}
-          type="submit"
-          disabled={!input.trim()}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-400 text-navy-950 shadow-gold transition-colors hover:bg-gold-300 disabled:cursor-not-allowed disabled:bg-navy-900/10 disabled:text-navy-900/30 disabled:shadow-none"
-        >
-          <Send size={16} />
-        </motion.button>
+        <div className="mt-2 flex items-center justify-between border-t border-navy-900/5 px-3.5 py-2">
+          <div className="flex items-center gap-1.5">
+            <div className="relative" ref={menuModeRef}>
+              <div className="flex items-center gap-1.5">
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setMenuOuvert((v) => !v)}
+                  title="Mode de réponse"
+                  aria-label="Mode de réponse"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-navy-900/10 text-navy-700/40 transition-colors hover:border-gold-400/40 hover:text-gold-600"
+                >
+                  <Plus size={14} />
+                </motion.button>
+
+                {mode !== 'citoyen' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="flex items-center gap-1 rounded-full border border-gold-400/30 bg-gold-400/5 py-1 pl-2.5 pr-1.5 text-[11px] font-medium text-gold-700"
+                  >
+                    <button type="button" onClick={() => setMenuOuvert(true)}>
+                      {MODES.find((m) => m.id === mode)?.label}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => mettreAJourModeReponse('citoyen').catch(console.error)}
+                      title="Revenir au mode Citoyen"
+                      aria-label="Revenir au mode Citoyen"
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-gold-700/60 transition-colors hover:bg-gold-400/20 hover:text-gold-700"
+                    >
+                      <X size={11} />
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+
+              <AnimatePresence>
+                {menuOuvert && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute bottom-full left-0 z-30 mb-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-navy-900/10 bg-white shadow-2xl"
+                  >
+                    <p className="border-b border-navy-900/[0.06] px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider text-navy-700/40">
+                      Mode de réponse
+                    </p>
+                    <div className="py-1">
+                      {MODES.map((m) => {
+                        const actif = mode === m.id
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              mettreAJourModeReponse(m.id).catch(console.error)
+                              setMenuOuvert(false)
+                            }}
+                            className="flex w-full items-start gap-2 px-3.5 py-2 text-left transition-colors hover:bg-navy-900/[0.03]"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-medium ${actif ? 'text-gold-700' : 'text-navy-900'}`}>
+                                {m.label}
+                              </p>
+                              <p className="mt-0.5 text-xs text-navy-700/45">{m.description}</p>
+                            </div>
+                            {actif && <Check size={14} className="mt-0.5 shrink-0 text-gold-600" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-full border border-navy-900/10 bg-navy-900/[0.02] px-3 py-1.5 text-[11px] font-medium tracking-wide text-navy-700/50">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              Halex AI
+            </div>
+          </div>
+
+          <motion.button
+            whileHover={input.trim() ? { scale: 1.08 } : {}}
+            whileTap={input.trim() ? { scale: 0.9 } : {}}
+            type="submit"
+            disabled={!input.trim()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-500 text-navy-950 shadow-gold transition-colors hover:from-gold-200 hover:to-gold-400 disabled:cursor-not-allowed disabled:bg-none disabled:bg-navy-900/10 disabled:text-navy-900/30 disabled:shadow-none"
+          >
+            <Send size={16} />
+          </motion.button>
+        </div>
       </div>
     </motion.div>
   )
 
   return (
-    <div className="flex h-[calc(100vh-73px)] bg-cream-50">
+    <div className="flex h-dvh w-full overflow-hidden bg-cream-50">
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-40 flex transition-transform duration-300 lg:static lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ top: 73 }}
       >
-        {/* Icon rail */}
-        <div className="flex w-16 shrink-0 flex-col items-center gap-2 border-r border-white/5 bg-navy-950 py-4">
-          <Magnetic>
-            <Link
-              to="/"
-              title={chatText.backToSite}
-              aria-label={chatText.backToSite}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold-400 text-navy-950 shadow-gold transition hover:bg-gold-300"
-            >
-              <Scale size={18} />
-            </Link>
-          </Magnetic>
-
-          <motion.button
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.94 }}
-            onClick={startNewConversation}
-            title={chatText.newChat}
-            aria-label={chatText.newChat}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-cream-100/70 transition-colors hover:border-gold-400/40 hover:text-gold-300"
-          >
-            <Plus size={18} />
-          </motion.button>
-
-          <button
-            className="hidden h-10 w-10 items-center justify-center rounded-xl text-cream-100/40 transition-colors hover:bg-white/5 hover:text-cream-100 lg:flex"
-            onClick={() => setSidebarCollapsed((c) => !c)}
-            title={sidebarCollapsed ? chatText.expandSidebar : chatText.collapseSidebar}
-            aria-label={sidebarCollapsed ? chatText.expandSidebar : chatText.collapseSidebar}
-          >
-            {sidebarCollapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
-          </button>
-
-          <div className="flex-1" />
-
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gold-400 text-sm font-bold text-navy-950">
-            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.15 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={handleLogout}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-cream-100/40 transition-colors hover:bg-white/5 hover:text-gold-300"
-            title={chatText.logout}
-            aria-label={chatText.logout}
-          >
-            <LogOut size={16} />
-          </motion.button>
-          <button
-            className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl text-cream-100/50 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
         {/* Conversation list panel */}
-        <AnimatePresence initial={false}>
+        <motion.div
+          animate={{ width: sidebarCollapsed ? 64 : 272 }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col overflow-hidden border-r border-white/5 bg-navy-950"
+        >
+          <div
+            className={`flex items-center gap-2 p-3 pb-2 ${
+              sidebarCollapsed ? 'flex-col' : 'justify-between'
+            }`}
+          >
+            {!sidebarCollapsed && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={startNewConversation}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-gold-300 to-gold-500 px-3 py-2.5 text-sm font-semibold text-navy-950 shadow-gold transition hover:from-gold-200 hover:to-gold-400"
+              >
+                <Plus size={16} />
+                {chatText.newChat}
+              </motion.button>
+            )}
+
+            <div className={`flex shrink-0 items-center gap-2 ${sidebarCollapsed ? 'flex-col' : ''}`}>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => setSidebarCollapsed((c) => !c)}
+                title={sidebarCollapsed ? chatText.expandSidebar : chatText.collapseSidebar}
+                aria-label={sidebarCollapsed ? chatText.expandSidebar : chatText.collapseSidebar}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 text-cream-100/70 transition-colors hover:border-gold-400/40 hover:text-gold-300"
+              >
+                <Menu size={18} />
+              </motion.button>
+
+              {sidebarCollapsed && (
+                <motion.button
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={startNewConversation}
+                  title={chatText.newChat}
+                  aria-label={chatText.newChat}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-gold-300 to-gold-500 text-navy-950 shadow-gold transition hover:from-gold-200 hover:to-gold-400"
+                >
+                  <Plus size={16} />
+                </motion.button>
+              )}
+
+              <button
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-cream-100/50 lg:hidden"
+                onClick={() => setSidebarOpen(false)}
+                aria-label={chatText.collapseSidebar}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {sidebarCollapsed && (
+            <div className="mt-auto flex flex-col items-center gap-2 p-3">
+              <motion.button
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => setSidebarCollapsed(false)}
+                title={user?.name || chatText.brand}
+                aria-label={user?.name || chatText.brand}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-500 text-sm font-bold leading-none text-navy-950 shadow-gold"
+              >
+                {(user?.name || chatText.brand).charAt(0).toUpperCase()}
+              </motion.button>
+            </div>
+          )}
+
           {!sidebarCollapsed && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 272, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="flex flex-col overflow-hidden border-r border-white/5 bg-navy-950"
-            >
-              <div className="w-[272px] p-3 pb-2">
-                <div className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
+            <>
+              <div className="w-[272px] space-y-3 px-3 pb-2">
+                <div>
+                  <p className="px-1 pb-1.5 text-xs font-semibold uppercase tracking-wider text-cream-100/30">
+                    {chatText.categoriesTitle}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {categoryDefs.map(({ id, icon: Icon }) => {
+                      const isActive = activeCategory === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setActiveCategory((c) => (c === id ? null : id))}
+                          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs transition-colors ${
+                            isActive
+                              ? 'border-gold-400/40 bg-gold-400/10 text-gold-300'
+                              : 'border-white/10 text-cream-100/55 hover:border-white/20 hover:text-cream-100'
+                          }`}
+                        >
+                          <Icon size={12} />
+                          {chatText.categories[id]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 transition-colors focus-within:border-gold-400/30 focus-within:bg-white/[0.07]">
                   <Search size={14} className="shrink-0 text-cream-100/30" />
                   <input
                     value={search}
@@ -373,10 +744,7 @@ export default function Chat() {
                       <motion.button
                         key={conv.id}
                         layout
-                        onClick={() => {
-                          setActiveId(conv.id)
-                          setSidebarOpen(false)
-                        }}
+                       onClick={() => openConversation(conv.id)}
                         className={`relative flex w-full items-center gap-2.5 truncate rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                           isActive ? 'text-white' : 'text-cream-100/55 hover:bg-white/5 hover:text-cream-100'
                         }`}
@@ -384,7 +752,7 @@ export default function Chat() {
                         {isActive && (
                           <motion.span
                             layoutId="conv-active-pill"
-                            className="absolute inset-0 rounded-lg bg-white/10"
+                            className="absolute inset-0 rounded-lg border border-gold-400/20 bg-gradient-to-r from-gold-400/10 via-white/[0.06] to-transparent"
                             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                           />
                         )}
@@ -399,9 +767,45 @@ export default function Chat() {
                   })
                 )}
               </div>
-            </motion.div>
+
+              <div className="w-[272px] shrink-0 border-t border-white/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-300 to-gold-500 text-sm font-bold leading-none text-navy-950 shadow-gold">
+                      {(user?.name || chatText.brand).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-cream-100">{user?.name || chatText.brand}</p>
+                      <p className="truncate text-xs text-gold-400/70">{chatText.planLabel}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <motion.button
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleLogout}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl text-cream-100/40 transition-colors hover:bg-white/5 hover:text-gold-300"
+                      title={chatText.logout}
+                      aria-label={chatText.logout}
+                    >
+                      <LogOut size={15} />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setParametresOuverts(true)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl text-cream-100/40 transition-colors hover:bg-white/5 hover:text-gold-300"
+                      title={chatText.settings}
+                      aria-label={chatText.settings}
+                    >
+                      <Settings size={15} />
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
-        </AnimatePresence>
+        </motion.div>
       </div>
 
       <AnimatePresence>
@@ -411,7 +815,6 @@ export default function Chat() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
-            style={{ top: 73 }}
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -419,16 +822,36 @@ export default function Chat() {
 
       {/* Main chat area */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="relative z-20 flex items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-navy-900/[0.06] bg-cream-50/80 px-4 py-3 backdrop-blur-md sm:px-6">
           <button
             className="rounded-lg p-2 text-navy-700 lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu size={20} />
           </button>
-          <div className="truncate text-sm font-medium text-navy-800/70">
-            {activeConversation ? activeConversation.title : chatText.brand}
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-semibold text-navy-900">{chatText.assistantTitle}</span>
+              <span className="flex shrink-0 items-center gap-1.5 text-xs text-emerald-600">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
+                {chatText.online}
+              </span>
+            </div>
+            {activeConversation && (
+              <p className="truncate text-xs text-navy-700/45">{activeConversation.title}</p>
+            )}
           </div>
+          <Link
+            to="/"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-navy-700/60 transition-colors hover:bg-navy-900/5 hover:text-navy-900"
+          >
+            <Home size={14} />
+            <span className="hidden sm:inline">{chatText.home}</span>
+          </Link>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold-400/40 to-transparent" />
         </div>
 
         {!activeConversation ? (
@@ -446,7 +869,7 @@ export default function Chat() {
               variants={listContainer}
               initial="hidden"
               animate="show"
-              className="relative w-full max-w-2xl text-center"
+              className="relative w-full max-w-2xl text-center 2xl:max-w-3xl"
             >
               <motion.div
                 variants={listItem}
@@ -473,9 +896,16 @@ export default function Chat() {
                 {chatText.emptyStateParagraph}
               </motion.p>
 
+              <motion.p
+                variants={listItem}
+                className="mt-8 text-xs font-semibold uppercase tracking-wider text-navy-700/40"
+              >
+                {chatText.suggestedQuestionsTitle}
+              </motion.p>
+
               <motion.div
                 variants={listContainer}
-                className="mt-6 flex flex-wrap items-center justify-center gap-2"
+                className="mt-3 flex flex-wrap items-center justify-center gap-2"
               >
                 {suggestedPrompts[siteLang].map((prompt) => (
                   <motion.button
@@ -494,8 +924,12 @@ export default function Chat() {
           </div>
         ) : (
           <>
-            <div ref={scrollRef} className="scroll-thin flex-1 overflow-y-auto px-4 py-8 sm:px-8">
-              <div className="mx-auto max-w-3xl space-y-8">
+            <div ref={scrollRef} className="scroll-thin relative flex-1 overflow-y-auto px-4 py-8 sm:px-8">
+              <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+                <div className="absolute inset-0 bg-grid opacity-[0.18] [mask-image:radial-gradient(ellipse_at_top,black,transparent_75%)]" />
+              </div>
+
+              <div className="mx-auto max-w-3xl space-y-8 2xl:max-w-4xl">
                 <AnimatePresence initial={false}>
                   {activeConversation.messages.map((msg, i) => (
                     <motion.div
@@ -504,37 +938,126 @@ export default function Chat() {
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-                      className={msg.role === 'user' ? 'flex justify-end' : 'group'}
+                      className={msg.role === 'user' ? 'flex justify-end' : 'group flex items-start gap-3'}
                     >
                       {msg.role === 'user' ? (
-                        <div className="max-w-[80%] rounded-2xl bg-navy-900/[0.06] px-4 py-2.5 text-navy-900">
-                          <MessageContent text={msg.content} />
-                        </div>
-                      ) : (
-                        <div className="max-w-full text-navy-800">
-                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-600/80">
-                            Halex AI
-                          </p>
-                          <MessageContent text={msg.content} />
-                          <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        messageEnEdition === msg.id ? (
+                          <div className="w-full max-w-[80%] space-y-2">
+                            <textarea
+                              value={texteEdition}
+                              onChange={(e) => setTexteEdition(e.target.value)}
+                              rows={2}
+                              autoFocus
+                              className="w-full resize-none rounded-2xl border border-gold-400/50 bg-white px-4 py-2.5 text-sm text-navy-900 shadow-sm outline-none focus:border-gold-400"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={annulerEdition}
+                                className="rounded-lg px-3 py-1.5 text-xs font-medium text-navy-700/60 transition-colors hover:bg-navy-900/5 hover:text-navy-900"
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => soumettreEdition(msg, i)}
+                                disabled={!texteEdition.trim() || thinking}
+                                className="rounded-lg bg-gold-400 px-3 py-1.5 text-xs font-semibold text-navy-950 transition hover:bg-gold-300 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Envoyer
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="group/msg relative max-w-[80%] rounded-2xl border border-navy-900/[0.06] bg-gradient-to-br from-navy-900/[0.06] to-navy-900/[0.03] px-4 py-2.5 text-navy-900 shadow-sm">
+                            <MessageContent text={msg.content} />
                             <button
                               type="button"
-                              onClick={() => copyMessage(msg.content, i)}
-                              title={chatText.copy}
-                              className="flex items-center gap-1 rounded-lg p-1.5 text-navy-700/40 transition-colors hover:bg-navy-900/5 hover:text-navy-700"
+                              onClick={() => commencerEdition(msg)}
+                              title="Modifier"
+                              aria-label="Modifier le message"
+                              className="absolute -left-8 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-lg p-1.5 text-navy-700/40 opacity-100 transition-colors hover:bg-navy-900/5 hover:text-navy-700 sm:opacity-0 sm:group-hover/msg:opacity-100"
                             >
-                              {copiedIndex === i ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => regenerate(i)}
-                              title={chatText.regenerate}
-                              className="flex items-center gap-1 rounded-lg p-1.5 text-navy-700/40 transition-colors hover:bg-navy-900/5 hover:text-navy-700"
-                            >
-                              <RotateCw size={13} />
+                              <Pencil size={13} />
                             </button>
                           </div>
-                        </div>
+                        )
+                      ) : (
+                        <>
+                          <AvatarHalex />
+                          <div className="min-w-0 max-w-full flex-1 text-navy-800">
+                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-600/80">
+                              Halex AI
+                            </p>
+                            {msg.type === 'clarification' ? (
+                              <ChipsClarification
+                                message={msg}
+                                desactive={msg.resolue || thinking}
+                                onChoix={(choix) => handleChoixClarification(i, choix)}
+                              />
+                            ) : (
+                              <>
+                                <div
+                                  className={`transition-opacity ${regenerationEnCours === msg.id ? 'opacity-40' : ''}`}
+                                >
+                                  <MessageContent text={msg.content} />
+                                  {msg.sources?.length > 0 && (
+                                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                      {msg.sources.map((src, srcIndex) => (
+                                        <SourceChip
+                                          key={srcIndex}
+                                          article={src.article}
+                                          source={src.source}
+                                          onClick={() => setArticleOuvert(src)}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div
+                                  className={`mt-2 flex items-center gap-1 transition-opacity ${
+                                    regenerationEnCours === msg.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => copyMessage(msg.content, i)}
+                                    title={chatText.copy}
+                                    disabled={regenerationEnCours === msg.id}
+                                    className="flex items-center gap-1 rounded-lg p-1.5 text-navy-700/40 transition-colors hover:bg-navy-900/5 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {copiedIndex === i ? <Check size={13} /> : <Copy size={13} />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => regenerate(i)}
+                                    title={chatText.regenerate}
+                                    disabled={regenerationEnCours === msg.id}
+                                    className="flex items-center gap-1 rounded-lg p-1.5 text-navy-700/40 transition-colors hover:bg-navy-900/5 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    <RotateCw size={13} className={regenerationEnCours === msg.id ? 'animate-spin' : ''} />
+                                  </button>
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => partagerReponse(i)}
+                                      title="Partager"
+                                      disabled={regenerationEnCours === msg.id}
+                                      className="flex items-center gap-1 rounded-lg p-1.5 text-navy-700/40 transition-colors hover:bg-navy-900/5 hover:text-navy-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      <Share2 size={13} />
+                                    </button>
+                                    {partageCopieIndex === i && (
+                                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-navy-900 px-2 py-1 text-[10px] font-medium text-cream-100 shadow-lg">
+                                        Copié !
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </>
                       )}
                     </motion.div>
                   ))}
@@ -547,21 +1070,25 @@ export default function Chat() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+                      className="flex items-start gap-3"
                     >
-                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-600/80">
-                        Halex AI
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-navy-700/50">{chatText.thinking}</span>
-                        <div className="flex items-center gap-1.5">
-                          {[0, 1, 2].map((i) => (
-                            <motion.span
-                              key={i}
-                              className="h-1.5 w-1.5 rounded-full bg-gold-400"
-                              animate={{ y: [0, -5, 0] }}
-                              transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
-                            />
-                          ))}
+                      <AvatarHalex />
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-600/80">
+                          Halex AI
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-navy-700/50">{chatText.thinking}</span>
+                          <div className="flex items-center gap-1.5">
+                            {[0, 1, 2].map((i) => (
+                              <motion.span
+                                key={i}
+                                className="h-1.5 w-1.5 rounded-full bg-gold-400"
+                                animate={{ y: [0, -5, 0] }}
+                                transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -572,13 +1099,34 @@ export default function Chat() {
 
             <form onSubmit={handleSubmit} className="px-4 pb-5 pt-2 sm:px-8">
               {composer}
-              <p className="mx-auto mt-2.5 max-w-3xl text-center text-xs text-navy-700/40">
+              <p className="mx-auto mt-2.5 max-w-3xl text-center text-xs text-navy-700/40 2xl:max-w-4xl">
                 {chatText.disclaimer}
               </p>
             </form>
           </>
         )}
       </div>
+
+      <AnimatePresence>
+        {articleOuvert && (
+          <ArticleModal
+            key="article-modal"
+            source={articleOuvert}
+            onClose={() => setArticleOuvert(null)}
+            t={chatText}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {parametresOuverts && (
+          <ParametresModal
+            key="parametres-modal"
+            onClose={() => setParametresOuverts(false)}
+            onHistoriqueEffacee={handleHistoriqueEffacee}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

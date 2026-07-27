@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, ShieldCheck, Loader2, Briefcase, Check, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import Logo from '../components/Logo.jsx'
+import GoogleIcon from '../components/GoogleIcon.jsx'
 import AuroraBackground from '../components/motion/AuroraBackground.jsx'
 
 const container = {
@@ -16,69 +17,161 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 }
 
-function passwordStrength(pw) {
-  let score = 0
-  if (pw.length >= 6) score++
-  if (pw.length >= 10) score++
-  if (/[A-Z]/.test(pw) && /[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
+const ACTIVITY_OPTIONS = [
+  'etudiant',
+  'avocat',
+  'juriste',
+  'fonctionnaire',
+  'entrepreneur',
+  'journaliste',
+  'citoyen',
+  'autre',
+]
+
+const SPECIAL_CHARS_REGEX = /[!@#$%^&*()_+\-=[\]{};':"|,.<>/?]/
+
+function getPasswordChecks(pw) {
+  return {
+    length: pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    number: /[0-9]/.test(pw),
+    special: SPECIAL_CHARS_REGEX.test(pw),
+  }
 }
 
-const strengthColors = ['bg-transparent', 'bg-red-400', 'bg-amber-400', 'bg-gold-400', 'bg-emerald-400']
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const FIELD_ORDER = ['prenom', 'nom', 'typeActivite', 'email', 'password', 'confirm']
+
+// Retourne une clé d'erreur (à traduire via s.errors) ou '' si le champ est valide.
+function validateField(field, values) {
+  switch (field) {
+    case 'prenom':
+      return values.prenom.trim() ? '' : 'required'
+    case 'nom':
+      return values.nom.trim() ? '' : 'required'
+    case 'email':
+      if (!values.email.trim()) return 'required'
+      return EMAIL_REGEX.test(values.email.trim()) ? '' : 'emailInvalid'
+    case 'typeActivite':
+      return values.typeActivite ? '' : 'activityRequired'
+    case 'password':
+      if (!values.password) return 'required'
+      return Object.values(getPasswordChecks(values.password)).every(Boolean) ? '' : 'passwordWeak'
+    case 'confirm':
+      if (!values.confirm) return 'required'
+      return values.confirm === values.password ? '' : 'passwordMismatch'
+    default:
+      return ''
+  }
+}
 
 export default function Signup() {
-  const { signup, loginAsGuestDemo } = useAuth()
+  const { signup, loginAsGuestDemo, loginWithGoogle, user } = useAuth()
   const { t } = useLanguage()
   const s = t.signup
   const navigate = useNavigate()
 
-  const [name, setName] = useState('')
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
+  const [typeActivite, setTypeActivite] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
 
-  const strength = passwordStrength(password)
+  const fieldRefs = {
+    prenom: useRef(null),
+    nom: useRef(null),
+    typeActivite: useRef(null),
+    email: useRef(null),
+    password: useRef(null),
+    confirm: useRef(null),
+  }
 
-  function handleSubmit(e) {
+  const passwordChecks = getPasswordChecks(password)
+
+  useEffect(() => {
+    if (user) navigate('/halex-chat', { replace: true })
+  }, [user, navigate])
+
+  // Valide un seul champ à partir de l'état courant (+ overrides éventuels) et met à jour `errors`.
+  function runValidation(field, overrides = {}) {
+    const values = { prenom, nom, email, typeActivite, password, confirm, ...overrides }
+    const key = validateField(field, values)
+    setErrors((prev) => {
+      if (!key) {
+        if (!(field in prev)) return prev
+        const next = { ...prev }
+        delete next[field]
+        return next
+      }
+      return { ...prev, [field]: key }
+    })
+    return key
+  }
+
+  function revalidateIfErrored(field, overrides) {
+    if (errors[field]) runValidation(field, overrides)
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!name || !email || !password || !confirm) {
-      setError(s.fillAllFields)
+
+    const values = { prenom, nom, email, typeActivite, password, confirm }
+    const newErrors = {}
+    FIELD_ORDER.forEach((field) => {
+      const key = validateField(field, values)
+      if (key) newErrors[field] = key
+    })
+    setErrors(newErrors)
+
+    const firstErroredField = FIELD_ORDER.find((field) => newErrors[field])
+    if (firstErroredField) {
+      const node = fieldRefs[firstErroredField].current
+      if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        node.focus()
+      }
       return
     }
-    if (password.length < 6) {
-      setError(s.passwordTooShort)
-      return
-    }
-    if (password !== confirm) {
-      setError(s.passwordMismatch)
-      return
-    }
+
     if (!agree) {
       setError(s.mustAgree)
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      try {
-        signup({ name, email, password })
-        navigate('/halex-chat', { replace: true })
-      } catch (err) {
-        setError(t.auth[err.message] || err.message)
-      } finally {
-        setLoading(false)
-      }
-    }, 500)
+    try {
+      await signup({ prenom, nom, email, password, typeActivite })
+      navigate('/halex-chat', { replace: true })
+    } catch (err) {
+      setError(t.auth[err.message] || err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleDemo() {
     loginAsGuestDemo()
     navigate('/halex-chat')
+  }
+
+ async function handleGoogleSignup() {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      await loginWithGoogle()
+      // Pas de navigate ici : Supabase redirige vers Google, puis revient sur /halex-chat
+    } catch (err) {
+      setError(err.message)
+      setGoogleLoading(false)
+    }
   }
 
   return (
@@ -129,17 +222,106 @@ export default function Signup() {
               )}
             </AnimatePresence>
 
-            <motion.div variants={item}>
-              <label className="mb-1.5 block text-sm font-medium text-navy-800">{s.nameLabel}</label>
-              <div className="relative">
-                <User size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={s.namePlaceholder}
-                  className="w-full rounded-xl border border-navy-900/10 bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
-                />
+            <motion.div variants={item} className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-navy-800">{s.prenomLabel}</label>
+                <div className="relative">
+                  <User size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
+                  <input
+                    ref={fieldRefs.prenom}
+                    value={prenom}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setPrenom(v)
+                      revalidateIfErrored('prenom', { prenom: v })
+                    }}
+                    onBlur={() => runValidation('prenom')}
+                    placeholder={s.prenomPlaceholder}
+                    required
+                    aria-invalid={errors.prenom ? 'true' : 'false'}
+                    aria-describedby={errors.prenom ? 'prenom-error' : undefined}
+                    className={`w-full rounded-xl border bg-white py-3 pl-10 pr-3 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                      errors.prenom
+                        ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                        : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                    }`}
+                  />
+                </div>
+                {errors.prenom && (
+                  <p id="prenom-error" className="mt-1.5 text-xs text-red-500">
+                    {s.errors[errors.prenom]}
+                  </p>
+                )}
               </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-navy-800">{s.nomLabel}</label>
+                <div className="relative">
+                  <User size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
+                  <input
+                    ref={fieldRefs.nom}
+                    value={nom}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setNom(v)
+                      revalidateIfErrored('nom', { nom: v })
+                    }}
+                    onBlur={() => runValidation('nom')}
+                    placeholder={s.nomPlaceholder}
+                    required
+                    aria-invalid={errors.nom ? 'true' : 'false'}
+                    aria-describedby={errors.nom ? 'nom-error' : undefined}
+                    className={`w-full rounded-xl border bg-white py-3 pl-10 pr-3 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                      errors.nom
+                        ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                        : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                    }`}
+                  />
+                </div>
+                {errors.nom && (
+                  <p id="nom-error" className="mt-1.5 text-xs text-red-500">
+                    {s.errors[errors.nom]}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div variants={item}>
+              <label className="mb-1.5 block text-sm font-medium text-navy-800">{s.activityLabel}</label>
+              <div className="relative">
+                <Briefcase size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
+                <select
+                  ref={fieldRefs.typeActivite}
+                  value={typeActivite}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setTypeActivite(v)
+                    revalidateIfErrored('typeActivite', { typeActivite: v })
+                  }}
+                  onBlur={() => runValidation('typeActivite')}
+                  required
+                  aria-invalid={errors.typeActivite ? 'true' : 'false'}
+                  aria-describedby={errors.typeActivite ? 'typeActivite-error' : undefined}
+                  className={`w-full appearance-none rounded-xl border bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                    errors.typeActivite
+                      ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                      : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                  }`}
+                >
+                  <option value="" disabled>
+                    {s.activityPlaceholder}
+                  </option>
+                  {ACTIVITY_OPTIONS.map((key) => (
+                    <option key={key} value={key}>
+                      {s.activityOptions[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.typeActivite && (
+                <p id="typeActivite-error" className="mt-1.5 text-xs text-red-500">
+                  {s.errors[errors.typeActivite]}
+                </p>
+              )}
             </motion.div>
 
             <motion.div variants={item}>
@@ -147,13 +329,31 @@ export default function Signup() {
               <div className="relative">
                 <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
                 <input
+                  ref={fieldRefs.email}
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEmail(v)
+                    revalidateIfErrored('email', { email: v })
+                  }}
+                  onBlur={() => runValidation('email')}
                   placeholder={s.emailPlaceholder}
-                  className="w-full rounded-xl border border-navy-900/10 bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                  required
+                  aria-invalid={errors.email ? 'true' : 'false'}
+                  aria-describedby={errors.email ? 'email-error' : undefined}
+                  className={`w-full rounded-xl border bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                    errors.email
+                      ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                      : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                  }`}
                 />
               </div>
+              {errors.email && (
+                <p id="email-error" className="mt-1.5 text-xs text-red-500">
+                  {s.errors[errors.email]}
+                </p>
+              )}
             </motion.div>
 
             <motion.div variants={item}>
@@ -161,11 +361,25 @@ export default function Signup() {
               <div className="relative">
                 <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
                 <input
+                  ref={fieldRefs.password}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setPassword(v)
+                    revalidateIfErrored('password', { password: v })
+                    revalidateIfErrored('confirm', { password: v })
+                  }}
+                  onBlur={() => runValidation('password')}
                   placeholder={s.passwordPlaceholder}
-                  className="w-full rounded-xl border border-navy-900/10 bg-white py-3 pl-10 pr-11 text-sm text-navy-900 shadow-sm outline-none transition focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                  required
+                  aria-invalid={errors.password ? 'true' : 'false'}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  className={`w-full rounded-xl border bg-white py-3 pl-10 pr-11 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                    errors.password
+                      ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                      : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                  }`}
                 />
                 <button
                   type="button"
@@ -175,22 +389,34 @@ export default function Signup() {
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
+              {errors.password && (
+                <p id="password-error" className="mt-1.5 text-xs text-red-500">
+                  {s.errors[errors.password]}
+                </p>
+              )}
               {password.length > 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex h-1 flex-1 gap-1 overflow-hidden rounded-full bg-navy-900/10">
-                    {[0, 1, 2, 3].map((i) => (
-                      <motion.div
-                        key={i}
-                        className={`h-full flex-1 rounded-full ${i < strength ? strengthColors[strength] : 'bg-transparent'}`}
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: i < strength ? 1 : 0 }}
-                        style={{ originX: 0 }}
-                        transition={{ duration: 0.3, delay: i * 0.05 }}
-                      />
-                    ))}
-                  </div>
-                  <span className="w-12 text-xs text-navy-700/50">{s.strengthLabels[strength]}</span>
-                </div>
+                <ul className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {[
+                    ['length', s.passwordRequirements.length],
+                    ['upper', s.passwordRequirements.upper],
+                    ['lower', s.passwordRequirements.lower],
+                    ['number', s.passwordRequirements.number],
+                    ['special', s.passwordRequirements.special],
+                  ].map(([key, label]) => {
+                    const ok = passwordChecks[key]
+                    return (
+                      <li
+                        key={key}
+                        className={`flex items-center gap-1.5 text-xs transition-colors ${
+                          ok ? 'text-gold-600' : 'text-navy-700/40'
+                        }`}
+                      >
+                        {ok ? <Check size={13} className="shrink-0" /> : <X size={13} className="shrink-0" />}
+                        {label}
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </motion.div>
 
@@ -199,13 +425,31 @@ export default function Signup() {
               <div className="relative">
                 <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
                 <input
+                  ref={fieldRefs.confirm}
                   type={showPassword ? 'text' : 'password'}
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setConfirm(v)
+                    revalidateIfErrored('confirm', { confirm: v })
+                  }}
+                  onBlur={() => runValidation('confirm')}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-navy-900/10 bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                  required
+                  aria-invalid={errors.confirm ? 'true' : 'false'}
+                  aria-describedby={errors.confirm ? 'confirm-error' : undefined}
+                  className={`w-full rounded-xl border bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:ring-2 ${
+                    errors.confirm
+                      ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                      : 'border-navy-900/10 focus:border-gold-400 focus:ring-gold-400/20'
+                  }`}
                 />
               </div>
+              {errors.confirm && (
+                <p id="confirm-error" className="mt-1.5 text-xs text-red-500">
+                  {s.errors[errors.confirm]}
+                </p>
+              )}
             </motion.div>
 
             <motion.label variants={item} className="flex items-start gap-2 text-sm text-navy-700/70">
@@ -230,7 +474,7 @@ export default function Signup() {
               whileTap={{ scale: 0.97 }}
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-navy-950 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-navy-900 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-navy-950 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
@@ -255,8 +499,29 @@ export default function Signup() {
             variants={item}
             whileHover={{ scale: 1.015 }}
             whileTap={{ scale: 0.97 }}
+            type="button"
+            onClick={handleGoogleSignup}
+            disabled={googleLoading}
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-navy-900/15 bg-white px-6 py-3.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-navy-900/25 hover:shadow-md disabled:opacity-60"
+          >
+            {googleLoading ? (
+              <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
+                <Loader2 size={17} />
+              </motion.span>
+            ) : (
+              <>
+                <GoogleIcon size={18} />
+                {s.continueWithGoogle}
+              </>
+            )}
+          </motion.button>
+
+          <motion.button
+            variants={item}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.97 }}
             onClick={handleDemo}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-navy-900/10 bg-white px-6 py-3.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-gold-400/40 hover:text-gold-600"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-navy-900/10 bg-white px-6 py-3.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-gold-400/40 hover:text-gold-600"
           >
             <ShieldCheck size={17} />
             {s.demoButton}

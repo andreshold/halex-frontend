@@ -1,18 +1,13 @@
 import { Link } from 'react-router-dom'
 
-export default function Logo({ className = '', showText = false, to = '/' }) {
+export default function Logo({ className = '', to = '/' }) {
   return (
-    <Link to={to} className={`flex items-center gap-2 shrink-0 ${className}`}>
+    <Link to={to} className={`flex items-center shrink-0 ${className}`}>
       <img
-        src="/image/logo_app.png"
-        alt="Halex AI"
-        className="h-12 w-auto object-contain"
+        src="/image/halex_anim.png"
+        alt="Logo Halex AI"
+        className="h-10 w-auto sm:h-12"
       />
-      {showText && (
-        <span className="font-display text-lg font-bold tracking-wide text-white">
-          HALEX <span className="text-gold-400">AI</span>
-        </span>
-      )}
     </Link>
   )
 }

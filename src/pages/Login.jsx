@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 import Logo from '../components/Logo.jsx'
+import GoogleIcon from '../components/GoogleIcon.jsx'
 import AuroraBackground from '../components/motion/AuroraBackground.jsx'
 import Magnetic from '../components/motion/Magnetic.jsx'
 
@@ -17,22 +18,34 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 }
 
+const EMAIL_RE = /^\S+@\S+\.\S+$/
+
 export default function Login() {
-  const { login, loginAsGuestDemo } = useAuth()
+  const { login, loginWithGoogle, demanderReinitialisationMotDePasse, user } = useAuth()
   const { t } = useLanguage()
   const l = t.login
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/halex-chat'
 
+  const [vue, setVue] = useState('connexion') // 'connexion' | 'oubli'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
 
-  function handleSubmit(e) {
+  const [emailOubli, setEmailOubli] = useState('')
+  const [oubliEnvoi, setOubliEnvoi] = useState(false)
+  const [oubliEnvoye, setOubliEnvoye] = useState(false)
+  const [oubliErreur, setOubliErreur] = useState('')
+
+  useEffect(() => {
+    if (user) navigate('/halex-chat', { replace: true })
+  }, [user, navigate])
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     if (!email || !password) {
@@ -40,21 +53,55 @@ export default function Login() {
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      try {
-        login({ email, password })
-        navigate(from, { replace: true })
-      } catch (err) {
-        setError(t.auth[err.message] || err.message)
-      } finally {
-        setLoading(false)
-      }
-    }, 500)
+    try {
+      await login({ email, password })
+      navigate(from, { replace: true })
+    } catch (err) {
+      setError(t.auth[err.message] || err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleDemo() {
-    loginAsGuestDemo()
-    navigate('/halex-chat')
+  async function handleForgotSubmit(e) {
+    e.preventDefault()
+    setOubliErreur('')
+    if (!emailOubli) {
+      setOubliErreur(l.fillAllFields)
+      return
+    }
+    if (!EMAIL_RE.test(emailOubli)) {
+      setOubliErreur(l.emailInvalid)
+      return
+    }
+    setOubliEnvoi(true)
+    try {
+      await demanderReinitialisationMotDePasse(emailOubli)
+      setOubliEnvoye(true)
+    } catch (err) {
+      setOubliErreur(l.resetEmailError)
+    } finally {
+      setOubliEnvoi(false)
+    }
+  }
+
+  function retournerConnexion() {
+    setVue('connexion')
+    setOubliEnvoye(false)
+    setOubliErreur('')
+    setEmailOubli('')
+  }
+
+  async function handleGoogleLogin() {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      await loginWithGoogle()
+      // Pas de navigate ici : Supabase redirige vers Google, puis revient sur /halex-chat
+    } catch (err) {
+      setError(err.message)
+      setGoogleLoading(false)
+    }
   }
 
   return (
@@ -85,6 +132,8 @@ export default function Login() {
             <Logo />
           </motion.div>
 
+          {vue === 'connexion' && (
+          <>
           <motion.h1 variants={item} className="font-display text-3xl font-bold text-navy-900">
             {l.title}
           </motion.h1>
@@ -122,9 +171,16 @@ export default function Login() {
             <motion.div variants={item}>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="block text-sm font-medium text-navy-800">{l.passwordLabel}</label>
-                <a href="#" className="text-xs font-medium text-gold-600 hover:text-gold-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('')
+                    setVue('oubli')
+                  }}
+                  className="text-xs font-medium text-gold-600 hover:text-gold-700"
+                >
                   {l.forgotPassword}
-                </a>
+                </button>
               </div>
               <div className="relative">
                 <Lock size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
@@ -186,11 +242,21 @@ export default function Login() {
             variants={item}
             whileHover={{ scale: 1.015 }}
             whileTap={{ scale: 0.97 }}
-            onClick={handleDemo}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-navy-900/10 bg-white px-6 py-3.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-gold-400/40 hover:text-gold-600"
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-navy-900/15 bg-white px-6 py-3.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-navy-900/25 hover:shadow-md disabled:opacity-60"
           >
-            <ShieldCheck size={17} />
-            {l.demoButton}
+            {googleLoading ? (
+              <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
+                <Loader2 size={17} />
+              </motion.span>
+            ) : (
+              <>
+                <GoogleIcon size={18} />
+                {l.continueWithGoogle}
+              </>
+            )}
           </motion.button>
 
           <motion.p variants={item} className="mt-8 text-center text-sm text-navy-700/60">
@@ -199,6 +265,85 @@ export default function Login() {
               {l.createAccount}
             </Link>
           </motion.p>
+          </>
+          )}
+
+          {vue === 'oubli' && (
+          <>
+          <button
+            type="button"
+            onClick={retournerConnexion}
+            className="mb-4 flex items-center gap-1.5 text-sm font-medium text-navy-700/60 hover:text-navy-900"
+          >
+            <ArrowLeft size={15} />
+            {l.backToLogin}
+          </button>
+
+          {oubliEnvoye ? (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="py-4">
+              <CheckCircle2 size={32} className="text-emerald-500" />
+              <p className="mt-4 text-sm text-navy-800">{l.resetEmailSent}</p>
+            </motion.div>
+          ) : (
+            <>
+              <motion.h1 variants={item} className="font-display text-3xl font-bold text-navy-900">
+                {l.forgotTitle}
+              </motion.h1>
+              <motion.p variants={item} className="mt-2 text-sm text-navy-700/60">{l.forgotSubtitle}</motion.p>
+
+              <form onSubmit={handleForgotSubmit} className="mt-8 space-y-5">
+                <AnimatePresence>
+                  {oubliErreur && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto', x: [0, -6, 6, -4, 4, 0] }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="overflow-hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+                    >
+                      {oubliErreur}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.div variants={item}>
+                  <label className="mb-1.5 block text-sm font-medium text-navy-800">{l.emailLabel}</label>
+                  <div className="relative">
+                    <Mail size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-700/40" />
+                    <input
+                      type="email"
+                      value={emailOubli}
+                      onChange={(e) => setEmailOubli(e.target.value)}
+                      placeholder={l.emailPlaceholder}
+                      className="w-full rounded-xl border border-navy-900/10 bg-white py-3 pl-10 pr-4 text-sm text-navy-900 shadow-sm outline-none transition focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20"
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.button
+                  variants={item}
+                  whileHover={{ scale: 1.015 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="submit"
+                  disabled={oubliEnvoi}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-navy-950 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-navy-900 disabled:opacity-60"
+                >
+                  {oubliEnvoi ? (
+                    <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}>
+                      <Loader2 size={17} />
+                    </motion.span>
+                  ) : (
+                    <>
+                      {l.sendLinkButton}
+                      <ArrowRight size={17} />
+                    </>
+                  )}
+                </motion.button>
+              </form>
+            </>
+          )}
+          </>
+          )}
         </motion.div>
       </div>
     </div>

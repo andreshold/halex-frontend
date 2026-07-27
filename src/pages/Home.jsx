@@ -20,6 +20,7 @@ import Magnetic from '../components/motion/Magnetic.jsx'
 import CountUp from '../components/motion/CountUp.jsx'
 import AuroraBackground from '../components/motion/AuroraBackground.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const featureIcons = [MessagesSquare, ScrollText, Languages, Clock, ShieldCheck, Sparkles]
 
@@ -34,6 +35,7 @@ const heroItem = {
 
 export default function Home() {
   const { lang, t } = useLanguage()
+  const { user } = useAuth()
   const home = t.home
 
   return (
@@ -76,24 +78,38 @@ export default function Home() {
           </motion.p>
 
           <motion.div variants={heroItem} className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
-            <Magnetic>
-              <Link
-                to="/inscription"
-                className="group inline-flex items-center gap-2 rounded-full bg-gold-400 px-7 py-3.5 text-sm font-semibold text-navy-950 shadow-gold transition hover:bg-gold-300"
-              >
-                {home.startFree}
-                <ArrowRight size={18} className="transition group-hover:translate-x-1" />
-              </Link>
-            </Magnetic>
-            <Magnetic strength={0.25}>
-              <Link
-                to="/halex-chat"
-                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:border-gold-400/40 hover:text-gold-300"
-              >
-                <PlayCircle size={18} />
-                {home.seeDemo}
-              </Link>
-            </Magnetic>
+            {user ? (
+              <Magnetic>
+                <Link
+                  to="/halex-chat"
+                  className="group inline-flex items-center gap-2 rounded-full bg-gold-400 px-7 py-3.5 text-sm font-semibold text-navy-950 shadow-gold transition hover:bg-gold-300"
+                >
+                  {home.heroGoToChat}
+                  <ArrowRight size={18} className="transition group-hover:translate-x-1" />
+                </Link>
+              </Magnetic>
+            ) : (
+              <>
+                <Magnetic>
+                  <Link
+                    to="/inscription"
+                    className="group inline-flex items-center gap-2 rounded-full bg-gold-400 px-7 py-3.5 text-sm font-semibold text-navy-950 shadow-gold transition hover:bg-gold-300"
+                  >
+                    {home.startFree}
+                    <ArrowRight size={18} className="transition group-hover:translate-x-1" />
+                  </Link>
+                </Magnetic>
+                <Magnetic strength={0.25}>
+                  <Link
+                    to="/halex-chat"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:border-gold-400/40 hover:text-gold-300"
+                  >
+                    <PlayCircle size={18} />
+                    {home.seeDemo}
+                  </Link>
+                </Magnetic>
+              </>
+            )}
           </motion.div>
 
           <motion.div
@@ -113,14 +129,14 @@ export default function Home() {
       </section>
 
       {/* Article du jour */}
-      <section className="relative overflow-hidden bg-navy-950 px-5 pb-24 sm:px-8">
+      <section className="relative overflow-hidden bg-navy-950 px-5 pb-16 sm:px-8 sm:pb-24">
         <Reveal direction="scale" className="mx-auto max-w-4xl">
           <ArticleOfDay />
         </Reveal>
       </section>
 
       {/* Features preview */}
-      <section className="bg-cream-50 px-5 py-24 sm:px-8">
+      <section className="bg-cream-50 px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <Reveal>
             <SectionHeading
@@ -130,12 +146,12 @@ export default function Home() {
             />
           </Reveal>
 
-          <RevealGroup className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" stagger={0.08}>
+          <RevealGroup className="mt-10 grid grid-cols-1 gap-5 sm:mt-14 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3" stagger={0.08}>
             {home.features.map((feature, i) => {
               const Icon = featureIcons[i]
               return (
                 <RevealItem key={feature.title}>
-                  <SpotlightCard className="group h-full rounded-2xl border border-navy-900/5 bg-white p-7 shadow-card">
+                  <SpotlightCard className="group h-full rounded-2xl border border-navy-900/5 bg-white p-5 shadow-card sm:p-7">
                     <motion.div
                       whileHover={{ rotate: -6, scale: 1.08 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 15 }}
@@ -143,7 +159,7 @@ export default function Home() {
                     >
                       <Icon size={22} />
                     </motion.div>
-                    <h3 className="mt-5 font-display text-lg font-bold text-navy-900">
+                    <h3 className="mt-4 font-display text-lg font-bold text-navy-900 sm:mt-5">
                       {feature.title}
                     </h3>
                     <p className="mt-2 text-sm leading-relaxed text-navy-700/70">
@@ -155,10 +171,10 @@ export default function Home() {
             })}
           </RevealGroup>
 
-          <div className="mt-12 text-center">
+          <div className="mt-10 text-center sm:mt-12">
             <Link
               to="/fonctionnalites"
-              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-navy-900 hover:text-gold-600"
+              className="group inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-navy-900 hover:text-gold-600"
             >
               {home.seeAllFeatures}
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
@@ -168,18 +184,18 @@ export default function Home() {
       </section>
 
       {/* How it works */}
-      <section className="relative overflow-hidden bg-navy-900 px-5 py-24 sm:px-8">
+      <section className="relative overflow-hidden bg-navy-900 px-5 py-16 sm:px-8 sm:py-24">
         <div className="absolute inset-0 bg-grid opacity-30 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
         <div className="relative mx-auto max-w-6xl">
           <Reveal>
             <SectionHeading eyebrow={home.howItWorksEyebrow} title={home.howItWorksTitle} light />
           </Reveal>
 
-          <RevealGroup className="mt-16 grid grid-cols-1 gap-10 md:grid-cols-3" stagger={0.15}>
+          <RevealGroup className="mt-12 grid grid-cols-1 gap-8 sm:mt-16 sm:gap-10 md:grid-cols-3" stagger={0.15}>
             {home.steps.map((step, i) => (
               <RevealItem key={step.number} className="relative">
-                <div className="font-display text-6xl font-black text-white/10">{step.number}</div>
-                <h3 className="-mt-6 font-display text-xl font-bold text-white">{step.title}</h3>
+                <div className="font-display text-4xl font-black text-white/10 sm:text-6xl">{step.number}</div>
+                <h3 className="mt-1 font-display text-xl font-bold text-white sm:-mt-6">{step.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-cream-100/60">{step.description}</p>
                 {i < home.steps.length - 1 && (
                   <motion.div
@@ -209,7 +225,7 @@ export default function Home() {
       </section>
 
       {/* Documents preview */}
-      <section className="bg-cream-50 px-5 py-24 sm:px-8">
+      <section className="bg-cream-50 px-5 py-16 sm:px-8 sm:py-24">
         <div className="mx-auto max-w-7xl">
           <Reveal>
             <SectionHeading
@@ -219,15 +235,15 @@ export default function Home() {
             />
           </Reveal>
 
-          <RevealGroup className="mt-14 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
+          <RevealGroup className="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" stagger={0.06}>
             {legalCodes.map((code) => (
               <RevealItem key={code.id}>
-                <SpotlightCard className="h-full rounded-2xl border border-navy-900/5 bg-white p-6 shadow-card">
-                  <div className="flex items-center justify-between">
+                <SpotlightCard className="h-full rounded-2xl border border-navy-900/5 bg-white p-5 shadow-card sm:p-6">
+                  <div className="flex items-center justify-between gap-2">
                     <h3 className="font-display text-lg font-bold text-navy-900">
                       {lang === 'fr' ? code.nameFr : code.name}
                     </h3>
-                    <span className="rounded-full bg-gold-50 px-2.5 py-1 text-xs font-semibold text-gold-600">
+                    <span className="shrink-0 rounded-full bg-gold-50 px-2.5 py-1 text-xs font-semibold text-gold-600">
                       {code.articles} {home.articlesSuffix}
                     </span>
                   </div>
@@ -239,10 +255,10 @@ export default function Home() {
             ))}
           </RevealGroup>
 
-          <div className="mt-12 text-center">
+          <div className="mt-10 text-center sm:mt-12">
             <Link
               to="/documents"
-              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-navy-900 hover:text-gold-600"
+              className="group inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-navy-900 hover:text-gold-600"
             >
               {home.exploreLibrary}
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
@@ -252,14 +268,14 @@ export default function Home() {
       </section>
 
       {/* Pricing preview */}
-      <section className="relative overflow-hidden bg-navy-950 px-5 py-24 sm:px-8">
+      <section className="relative overflow-hidden bg-navy-950 px-5 py-16 sm:px-8 sm:py-24">
         <AuroraBackground />
         <div className="relative mx-auto max-w-5xl">
           <Reveal>
             <SectionHeading eyebrow={home.pricingEyebrow} title={home.pricingTitle} light />
           </Reveal>
 
-          <RevealGroup className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-3" stagger={0.1}>
+          <RevealGroup className="mt-10 grid grid-cols-1 gap-4 sm:mt-14 sm:grid-cols-3" stagger={0.1}>
             {home.pricingPlans.map((plan, i) => (
               <RevealItem key={plan.name} direction="scale" className="relative h-full">
                 {i === 1 && (
@@ -267,18 +283,18 @@ export default function Home() {
                 )}
                 <SpotlightCard
                   dark
-                  className={`relative h-full rounded-2xl border p-7 ${
+                  className={`relative h-full rounded-2xl border p-5 sm:p-7 ${
                     i === 1
                       ? 'border-gold-400/40 bg-navy-950 shadow-gold'
                       : 'border-white/10 bg-white/[0.03]'
                   }`}
                 >
                   <h3 className="font-display text-lg font-bold text-white">{plan.name}</h3>
-                  <p className="mt-2 font-display text-3xl font-bold text-gold-300">{plan.price}</p>
+                  <p className="mt-2 break-words font-display text-3xl font-bold text-gold-300">{plan.price}</p>
                   <ul className="mt-5 space-y-2.5">
                     {plan.items.map((item) => (
                       <li key={item} className="flex items-center gap-2 text-sm text-cream-100/70">
-                        <CheckCircle2 size={15} className="text-gold-400" />
+                        <CheckCircle2 size={15} className="shrink-0 text-gold-400" />
                         {item}
                       </li>
                     ))}
@@ -288,10 +304,10 @@ export default function Home() {
             ))}
           </RevealGroup>
 
-          <div className="mt-12 text-center">
+          <div className="mt-10 text-center sm:mt-12">
             <Link
               to="/tarifs"
-              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-gold-300 hover:text-gold-200"
+              className="group inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-gold-300 hover:text-gold-200"
             >
               {home.seePricing}
               <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />

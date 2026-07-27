@@ -1,15 +1,15 @@
 export const suggestedPrompts = {
   ht: [
     'Ki dwa mwen genyen si patwon m revoke m san avètisman?',
-    'Kijan pou m fè yon kontra lwaye ki valab legalman?',
-    "Ki etap pou m depoze yon plent nan biwo Komisarya a?",
-    'Ki diferans ant divò pa konsantman mityèl ak divò pou fòt?',
+    'Kijan yon pwosedi divòs fèt?',
+    'Kisa pou m fè si mèt kay mwen ap eksplize m?',
+    'Ki dwa mwen genyen lè yo mete m an gad avi?',
   ],
   fr: [
     'Quels sont mes droits si mon employeur me licencie sans préavis ?',
-    'Comment rédiger un contrat de location valable légalement ?',
-    'Quelles sont les étapes pour déposer une plainte au commissariat ?',
-    'Quelle est la différence entre un divorce par consentement mutuel et un divorce pour faute ?',
+    'Comment se déroule une procédure de divorce ?',
+    'Que faire si mon propriétaire m\'expulse ?',
+    'Quels sont mes droits lors d\'une garde à vue ?',
   ],
 }
 
@@ -35,6 +35,26 @@ const responseBank = {
       answer:
         "Divò pa **konsantman mityèl** mande akò toude epòu san diskisyon sou koz la, e li pi rapid. Divò **pou fòt** mande prèv (adiltè, abandon, vyolans) e pase devan tribinal sivil la (**Kòd Sivil, Atik 213 e swivan**). Chak wout gen konsekans diferan sou pansyon alimantè ak pataj byen.",
     },
+    {
+      match: ['eritaj', 'siksesyon', 'testaman', 'succession', 'héritage'],
+      answer:
+        "Siksesyon an ayiti reglemante pa **Kòd Sivil, Atik 605 e swivan**. Si pa gen testaman, byen yo separe ant eritye lejitim yo (mari/madanm, pitit, paran) dapre yon lòd presi. Si gen yon testaman, li dwe respekte **kota rezèvatè** eritye yo, sa vle di ou pa ka prive yo de tout eritaj la. Mwen sijere w fè yon deklarasyon eritaj devan yon notè pou pwoteje dwa ou.",
+    },
+    {
+      match: ['difamasyon', 'kalomni', 'repitasyon', 'diffamation'],
+      answer:
+        "Difamasyon se yon enfraksyon prevwa nan **Kòd Penal la**: deklare oswa ekri yon bagay ki atake repitasyon yon moun san prèv ka mennen nan sanksyon penal ak reparasyon sivil. Ou ka depoze yon plent nan Komisarya a oswa dirèkteman devan yon jij enstriksyon, ak prèv (temwen, mesaj, dokiman) ki montre pwopo yo te fèt e yo te fè ou mal.",
+    },
+    {
+      match: ['ekspilze', 'eksplize', 'mèt kay', 'degèpisman', 'expulse', 'propriétaire'],
+      answer:
+        "Yon mèt kay pa gen dwa mete w deyò san yon **desizyon tribinal**, menm si w gen reta nan peman. Li dwe swiv yon pwosedi legal: mete w an demè, mande yon jijman devan tribinal sivil la, epi jwenn yon **òdonans degèpisman** anvan nenpòt ekspilzyon fizik (**Kòd Sivil, Atik 1741 e swivan**). Yon ekspilzyon san jijman se yon aksyon ilegal ou ka denonse nan Komisarya a.",
+    },
+    {
+      match: ['gad avi', 'arestasyon', 'polisye', 'garde à vue', 'arrestation'],
+      answer:
+        "Pandan yon gad avi, ou gen dwa konnen rezon arestasyon an, dwa rete an silans, dwa kontakte yon avoka ak yon manm fanmi, ak dwa yon egzamen medikal si sa nesesè. Dapre **Kòd Enstriksyon Kriminèl la**, dire gad avi a limite (jeneralman 48 èdtan, ka pwolonje yon fwa nan ka eksepsyonèl) anvan yo dwe prezante w devan yon jij.",
+    },
   ],
   fr: [
     {
@@ -57,6 +77,26 @@ const responseBank = {
       answer:
         "Le divorce par **consentement mutuel** nécessite l'accord des deux époux sans contestation sur la cause, et il est plus rapide. Le divorce **pour faute** nécessite des preuves (adultère, abandon, violence) et passe devant le tribunal civil (**Code Civil, Article 213 et suivants**). Chaque voie a des conséquences différentes sur la pension alimentaire et le partage des biens.",
     },
+    {
+      match: ['eritaj', 'siksesyon', 'testaman', 'succession', 'héritage'],
+      answer:
+        "La succession en Haïti est régie par le **Code Civil, Article 605 et suivants**. En l'absence de testament, les biens sont répartis entre les héritiers légitimes (conjoint, enfants, parents) selon un ordre précis. En présence d'un testament, celui-ci doit respecter la **réserve héréditaire**, c'est-à-dire que vous ne pouvez pas priver ces héritiers de la totalité de la succession. Je vous suggère de faire une déclaration de succession devant un notaire pour protéger vos droits.",
+    },
+    {
+      match: ['difamasyon', 'kalomni', 'repitasyon', 'diffamation'],
+      answer:
+        "La diffamation est une infraction prévue par le **Code Pénal** : déclarer ou écrire un propos qui porte atteinte à la réputation d'une personne sans preuve peut entraîner des sanctions pénales et une réparation civile. Vous pouvez déposer une plainte au commissariat ou directement devant un juge d'instruction, avec des preuves (témoins, messages, documents) montrant que les propos ont été tenus et vous ont causé un préjudice.",
+    },
+    {
+      match: ['ekspilze', 'eksplize', 'mèt kay', 'degèpisman', 'expulse', 'propriétaire'],
+      answer:
+        "Un propriétaire n'a pas le droit de vous expulser sans une **décision de justice**, même en cas de retard de paiement. Il doit suivre une procédure légale : vous mettre en demeure, demander un jugement devant le tribunal civil, puis obtenir une **ordonnance d'expulsion** avant toute expulsion physique (**Code Civil, Article 1741 et suivants**). Une expulsion sans jugement est un acte illégal que vous pouvez dénoncer au commissariat.",
+    },
+    {
+      match: ['gad avi', 'arestasyon', 'polisye', 'garde à vue', 'arrestation'],
+      answer:
+        "Pendant une garde à vue, vous avez le droit de connaître le motif de l'arrestation, le droit de garder le silence, le droit de contacter un avocat et un membre de votre famille, ainsi que le droit à un examen médical si nécessaire. Selon le **Code d'Instruction Criminelle**, la durée de la garde à vue est limitée (généralement 48 heures, prolongeable une fois dans des cas exceptionnels) avant que vous ne soyez présenté devant un juge.",
+    },
   ],
 }
 
@@ -78,6 +118,7 @@ export const seedConversations = {
     {
       id: 'c1',
       title: 'Kontra travay ak revokasyon',
+      category: 'labor',
       updatedAt: '2026-07-11T10:00:00Z',
       messages: [
         { role: 'user', content: 'Ki dwa mwen genyen si patwon m revoke m san avètisman?' },
@@ -90,7 +131,8 @@ export const seedConversations = {
     },
     {
       id: 'c2',
-      title: 'Kontra lokasyon apatman',
+      title: 'Dwa lokatè a',
+      category: 'civil',
       updatedAt: '2026-07-09T15:30:00Z',
       messages: [
         { role: 'user', content: 'Kijan pou m fè yon kontra lwaye ki valab legalman?' },
@@ -101,11 +143,54 @@ export const seedConversations = {
         },
       ],
     },
+    {
+      id: 'c3',
+      title: 'Pwosedi divòs an Ayiti',
+      category: 'family',
+      updatedAt: '2026-07-07T09:15:00Z',
+      messages: [
+        { role: 'user', content: 'Kijan yon pwosedi divòs fèt an Ayiti?' },
+        {
+          role: 'assistant',
+          content:
+            "Divò pa **konsantman mityèl** mande akò toude epòu san diskisyon sou koz la, e li pi rapid. Divò **pou fòt** mande prèv (adiltè, abandon, vyolans) e pase devan tribinal sivil la (**Kòd Sivil, Atik 213 e swivan**).",
+        },
+      ],
+    },
+    {
+      id: 'c4',
+      title: 'Eritaj ak siksesyon',
+      category: 'family',
+      updatedAt: '2026-07-05T14:20:00Z',
+      messages: [
+        { role: 'user', content: 'Kijan siksesyon an fèt lè pa gen testaman?' },
+        {
+          role: 'assistant',
+          content:
+            "Siksesyon an ayiti reglemante pa **Kòd Sivil, Atik 605 e swivan**. Si pa gen testaman, byen yo separe ant eritye lejitim yo dapre yon lòd presi.",
+        },
+      ],
+    },
+    {
+      id: 'c5',
+      title: 'Plent pou difamasyon',
+      category: 'criminal',
+      updatedAt: '2026-07-02T11:45:00Z',
+      messages: [
+        { role: 'user', content: 'Ki jan mwen ka depoze yon plent pou difamasyon?' },
+        {
+          role: 'assistant',
+          content:
+            "Difamasyon se yon enfraksyon prevwa nan **Kòd Penal la**. Ou ka depoze yon plent nan Komisarya a oswa dirèkteman devan yon jij enstriksyon, ak prèv ki montre pwopo yo te fè ou mal.",
+        },
+      ],
+    },
   ],
   fr: [
     {
       id: 'c1',
       title: 'Contrat de travail et licenciement',
+      category: 'labor',
       updatedAt: '2026-07-11T10:00:00Z',
       messages: [
         { role: 'user', content: 'Quels sont mes droits si mon employeur me licencie sans préavis ?' },
@@ -118,7 +203,8 @@ export const seedConversations = {
     },
     {
       id: 'c2',
-      title: "Contrat de location d'appartement",
+      title: 'Droits du locataire',
+      category: 'civil',
       updatedAt: '2026-07-09T15:30:00Z',
       messages: [
         { role: 'user', content: 'Comment rédiger un contrat de location valable légalement ?' },
@@ -126,6 +212,48 @@ export const seedConversations = {
           role: 'assistant',
           content:
             "Un contrat de location valable doit contenir l'identité des deux parties, la description du logement, le montant du loyer, la durée du contrat, et la signature des deux parties (selon le **Code Civil, Article 1714 et suivants**).",
+        },
+      ],
+    },
+    {
+      id: 'c3',
+      title: 'Procédure de divorce en Haïti',
+      category: 'family',
+      updatedAt: '2026-07-07T09:15:00Z',
+      messages: [
+        { role: 'user', content: 'Comment se déroule une procédure de divorce en Haïti ?' },
+        {
+          role: 'assistant',
+          content:
+            "Le divorce par **consentement mutuel** nécessite l'accord des deux époux sans contestation sur la cause, et il est plus rapide. Le divorce **pour faute** nécessite des preuves (adultère, abandon, violence) et passe devant le tribunal civil (**Code Civil, Article 213 et suivants**).",
+        },
+      ],
+    },
+    {
+      id: 'c4',
+      title: 'Héritage et succession',
+      category: 'family',
+      updatedAt: '2026-07-05T14:20:00Z',
+      messages: [
+        { role: 'user', content: 'Comment se déroule une succession en l\'absence de testament ?' },
+        {
+          role: 'assistant',
+          content:
+            "La succession en Haïti est régie par le **Code Civil, Article 605 et suivants**. En l'absence de testament, les biens sont répartis entre les héritiers légitimes selon un ordre précis.",
+        },
+      ],
+    },
+    {
+      id: 'c5',
+      title: 'Plainte pour diffamation',
+      category: 'criminal',
+      updatedAt: '2026-07-02T11:45:00Z',
+      messages: [
+        { role: 'user', content: 'Comment déposer une plainte pour diffamation ?' },
+        {
+          role: 'assistant',
+          content:
+            "La diffamation est une infraction prévue par le **Code Pénal**. Vous pouvez déposer une plainte au commissariat ou directement devant un juge d'instruction, avec des preuves montrant que les propos vous ont causé un préjudice.",
         },
       ],
     },
