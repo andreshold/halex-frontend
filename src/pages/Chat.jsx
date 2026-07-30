@@ -197,7 +197,8 @@ export default function Chat() {
   // Appel brut du backend, sans effet de bord sur le state ni la persistance —
   // partagé entre l'envoi normal (replyTo) et la régénération sur place.
   async function appelerHalex(forMessage, extra = null) {
-    const res = await fetch('http://localhost:8000/poser-question', {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const res = await fetch(`${API_URL}/poser-question`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: forMessage, mode, ...(extra || {}) }),

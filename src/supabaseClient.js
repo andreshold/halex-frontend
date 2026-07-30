@@ -13,3 +13,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 supabase.auth.getSession().then(({ data, error }) => {
   console.log('Supabase OK — session :', data.session, '| erreur :', error)
 })
+
+// TEMPORAIRE - test RLS - À SUPPRIMER après validation
+if (import.meta.env.DEV) {
+  window.supabase = supabase;
+}
