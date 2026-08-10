@@ -111,14 +111,24 @@ export default function Chat() {
 
   useEffect(() => {
   if (!user) return
+  console.log('[DIAG] effet listerConversations déclenché', performance.now(), 'user ref =', user)
   listerConversations()
-    .then((rows) =>
-      setConversations(
-        rows.map((r) => ({ id: r.id, title: r.titre, updatedAt: r.created_at, messages: [] })),
-      ),
-    )
+    .then((rows) => {
+      console.log('[DIAG] listerConversations résolu', performance.now())
+      setConversations((prev) =>
+        rows.map((r) => {
+          const existante = prev.find((p) => p.id === r.id)
+          return {
+            id: r.id,
+            title: r.titre,
+            updatedAt: r.created_at,
+            messages: existante?.messages ?? [],
+          }
+        }),
+      )
+    })
     .catch(console.error)
-}, [user])
+}, [user?.id])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -164,6 +174,7 @@ export default function Chat() {
   if (conv && conv.messages.length === 0) {
     try {
       const msgs = await chargerMessages(convId)
+      console.log('[DIAG] chargerMessages résolu pour', convId, performance.now())
       setConversations((prev) =>
         prev.map((c) =>
           c.id === convId

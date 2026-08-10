@@ -11,6 +11,7 @@ import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
 import ArticleOfDayPage from './pages/ArticleOfDayPage.jsx'
 import Chat from './pages/Chat.jsx'
+import Admin from './pages/Admin.jsx'
 import ReinitialiserMotDePasse from './pages/ReinitialiserMotDePasse.jsx'
 import NotFound from './pages/NotFound.jsx'
 
@@ -55,6 +56,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </>
   )
